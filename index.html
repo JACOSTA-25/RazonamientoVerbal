@@ -60,7 +60,7 @@
   </header>
 
   <!-- Iframe para incrustar el formulario -->
-  <iframe id="form-iframe" src="https://forms.gle/ZyyDcFYx39rK8j31A"></iframe> <!-- Reemplaza FORM_ID con el ID de tu formulario -->
+  <iframe id="form-iframe" src="https://forms.gle/ZyyDcFYx39rK8j31A" onload="checkFormCompletion()"></iframe> <!-- Reemplaza FORM_ID con el ID de tu formulario -->
 
   <div class="button-container" style="display: none;" id="nextButtonContainer">
     <button class="next-button" id="nextButton" onclick="redirigirAlSiguienteFormulario()">Continuar con la siguiente prueba</button>
@@ -122,16 +122,16 @@
       window.location.href = nextFormUrl;  // Redirige a la siguiente página
     }
 
-    // Verifica si la URL contiene el mensaje de agradecimiento de Google Forms
+    // Verificar el contenido del iframe para ver si ha sido enviado correctamente
     function checkFormCompletion() {
       const iframe = document.getElementById("form-iframe");
 
       iframe.onload = function() {
         const iframeDocument = iframe.contentWindow.document;
 
-        // Comprobamos si el contenido del iframe contiene el mensaje de agradecimiento
+        // Verificar si el texto "¡Gracias por responder!" está presente
         if (iframeDocument.body.innerText.includes("¡Gracias por responder!")) {
-          // Mostrar el botón para continuar al siguiente formulario
+          // Si se detecta, mostrar el botón de redirección
           document.getElementById("nextButtonContainer").style.display = "block";
         }
       };
@@ -140,10 +140,6 @@
     // Actualizar el temporizador cada segundo
     updateTimer();
     const timerInterval = setInterval(updateTimer, 1000);
-
-    // Llamar a la función para verificar el envío del formulario
-    checkFormCompletion();
   </script>
 </body>
 </html>
-
