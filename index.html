@@ -35,17 +35,36 @@
       height: calc(100vh - 60px);
       border: none;
     }
+    .button-container {
+      text-align: center;
+      margin-top: 20px;
+    }
+    .next-button {
+      background-color: #4CAF50;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 5px;
+    }
+    .next-button:hover {
+      background-color: #45a049;
+    }
   </style>
 </head>
 <body>
   <header>
-   <!-- <h1>Formulario con Temporizador</h1>-->
     <p id="instruction">Tiempo restante:</p>
     <p id="timer">00:00</p>
   </header>
 
   <!-- Iframe para incrustar el formulario -->
   <iframe id="form-iframe" src="https://forms.gle/ZyyDcFYx39rK8j31A"></iframe> <!-- Reemplaza FORM_ID con el ID de tu formulario -->
+
+  <div class="button-container" style="display: none;" id="nextButtonContainer">
+    <button class="next-button" id="nextButton" onclick="redirigirAlSiguienteFormulario()">Continuar con la siguiente prueba</button>
+  </div>
 
   <script>
     const TOTAL_TIME = 25 * 60; // 30 minutos en segundos
@@ -97,9 +116,34 @@
       document.getElementById("form-iframe").src = ""; // Limpia el iframe
     }
 
+    // Función para redirigir al siguiente formulario cuando el estudiante haga clic
+    function redirigirAlSiguienteFormulario() {
+      const nextFormUrl = "https://jacosta-25.github.io/RazonamientoNumerico";  // Reemplaza con el enlace al siguiente formulario
+      window.location.href = nextFormUrl;  // Redirige a la siguiente página
+    }
+
+    // Verifica si la URL contiene el mensaje de agradecimiento de Google Forms
+    function checkFormCompletion() {
+      const iframe = document.getElementById("form-iframe");
+
+      iframe.onload = function() {
+        const iframeDocument = iframe.contentWindow.document;
+
+        // Comprobamos si el contenido del iframe contiene el mensaje de agradecimiento
+        if (iframeDocument.body.innerText.includes("¡Gracias por responder!")) {
+          // Mostrar el botón para continuar al siguiente formulario
+          document.getElementById("nextButtonContainer").style.display = "block";
+        }
+      };
+    }
+
     // Actualizar el temporizador cada segundo
     updateTimer();
     const timerInterval = setInterval(updateTimer, 1000);
+
+    // Llamar a la función para verificar el envío del formulario
+    checkFormCompletion();
   </script>
 </body>
 </html>
+
