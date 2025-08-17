@@ -11,19 +11,16 @@
       background:#333; color:#fff; display:flex; gap:12px; flex-wrap:wrap;
       align-items:center; justify-content:center; padding:8px 10px; transition:background .25s ease;
     }
-    header button { background:#fff; color:#333; border:0; border-radius:8px; padding:6px 10px; cursor:pointer; }
     #timer { font-size:1.4em; font-weight:700; }
     #status, #warning { font-weight:600; }
     header.warn { background:#b45309; }
     iframe { margin-top:56px; width:100%; height:calc(100vh - 56px); border:none; }
-
-    /* Banner de continuación (no bloquea la página) */
+    /* Banner no bloqueante */
     .continue {
       position:fixed; left:50%; transform:translateX(-50%);
       top:64px; z-index:11; background:#111; color:#fff;
       padding:10px 12px; border-radius:10px; display:none; gap:10px; align-items:center;
-      box-shadow:0 8px 30px rgba(0,0,0,.35);
-      font-size:14px;
+      box-shadow:0 8px 30px rgba(0,0,0,.35); font-size:14px;
     }
     .continue button { background:#1f4aff; color:#fff; border:0; border-radius:8px; padding:6px 10px; cursor:pointer; }
   </style>
@@ -31,14 +28,13 @@
 <body>
   <header id="topbar">
     <span>Tiempo restante: <span id="timer">00:00</span></span>
-    <button id="prep" title="Evita bloqueo de pop-ups">Activar auto-continuación</button>
     <span id="status"></span>
     <span id="warning"></span>
   </header>
 
   <!-- Banner que aparece cuando creemos que ya se envió -->
   <div id="contBanner" class="continue">
-    <span>¿Ya ves la confirmación de Google Forms?</span>
+    <span>¿Estas Seguro de Confirmar el Envío? Pulsa para continuar...</span>
     <button id="openNow">Abrir ahora</button>
   </div>
 
@@ -50,7 +46,7 @@
     const TOTAL_TIME      = 25 * 60; // 25 min
     const WARNING_MINUTES = 5;       // aviso cuando queden 5 min
     const NEXT_URL        = "https://jacosta-25.github.io/RazonamientoNumerico/";
-    const SECTIONS        = 2;       // tus forms: 2 secciones (ignora el primer “Siguiente”)
+    const SECTIONS        = 2;       // 2 secciones: ignoramos la 1ª transición
     const COMPLETED_KEY   = "completed:" + location.pathname;
 
     /************* DOM *************/
@@ -66,11 +62,10 @@
     function blockPage(msg){
       iframe.src = "";
       statusEl.textContent = msg || "Esta prueba ya fue enviada en esta pestaña.";
-      const prep = document.getElementById("prep");
-      if (prep) prep.disabled = true;
       try { clearInterval(tid); } catch(e){}
       timerEl.textContent = "—";
       topbar.classList.add("warn");
+      cont.style.display = "none";
     }
     if (sessionStorage.getItem(COMPLETED_KEY) === "1") {
       blockPage("Esta prueba ya fue enviada en esta pestaña.");
@@ -105,27 +100,9 @@
     }
     tick(); tid = setInterval(tick,1000);
 
-    /************* AUTO-CONTINUACIÓN *************/
-    // 1) Preabrir pestaña para evitar bloqueos
-    let nextWin = null;
-    document.getElementById("prep").addEventListener("click", () => {
-      if (!nextWin || nextWin.closed) {
-        nextWin = window.open("about:blank", "_blank");
-        if (nextWin) {
-          nextWin.document.write("<title>Próxima prueba</title><p>Esperando envío…</p>");
-          nextWin.document.close();
-          alert("Listo. Al ENVIAR (pantalla final), podrás abrir la siguiente prueba con el botón.");
-        } else {
-          alert("El navegador bloqueó la pestaña. Permite pop-ups para este sitio.");
-        }
-      } else {
-        alert("La pestaña ya está lista. Envía el formulario cuando quieras.");
-      }
-    });
-
-    // 2) Detectar secciones vs envío final — sin autoabrir
+    /************* DETECCIÓN POR SECCIONES (sin auto-abrir) *************/
     let ready = false, handled = false, settle = null;
-    let remainingTransitions = Math.max(0, SECTIONS - 1); // para 2 secciones => 1 transición ignorada
+    let remainingTransitions = Math.max(0, SECTIONS - 1); // 2 secciones => 1 transición ignorada
 
     iframe.addEventListener("load", () => {
       if (!ready) {
@@ -141,25 +118,23 @@
         return;
       }
 
-      // Carga subsiguiente: podría ser confirmación o “Atrás”.
-      // No auto-abrimos: mostramos el banner con "Abrir ahora".
-      sessionStorage.setItem(COMPLETED_KEY, "1"); // marcamos completado para bloquear si vuelven a esta página
+      // Posible confirmación final → mostrar banner manual (no bloqueante)
       statusEl.textContent = "Respuesta lista para continuar.";
       cont.style.display = "flex";
     });
 
-    // 3) Botón "Abrir ahora"
-    function openNext(){
-      if (nextWin && !nextWin.closed) {
-        nextWin.location.href = NEXT_URL;            // pestaña preabierta
-      } else {
-        const w = window.open(NEXT_URL, "_blank");   // intenta nueva pestaña
-        if (!w) window.location.href = NEXT_URL;     // si bloquean, misma pestaña
-      }
-    }
-    btnOpen.addEventListener("click", () => openNext());
+    /************* ABRIR EN LA MISMA PÁGINA *************/
+    btnOpen.addEventListener("click", () => {
+      // A partir de aquí sí consideramos completado:
+      sessionStorage.setItem(COMPLETED_KEY, "1");
+      // Inactivar inmediatamente la prueba actual
+      iframe.src = "";
+      try { clearInterval(tid); } catch(e){}
+      timerEl.textContent = "—";
+      cont.style.display = "none";
+      // Cargar la siguiente en la misma pestaña sin dejar rastro en el historial
+      location.replace(NEXT_URL);
+    });
   </script>
 </body>
 </html>
-
-
