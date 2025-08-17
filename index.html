@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>RELACIONES VERBAL</title>
+  <title>RAZONAMIENTO NUMÉRICO</title>
   <style>
     body { font-family: Arial, sans-serif; margin:0; display:flex; flex-direction:column; }
     header {
@@ -13,20 +13,19 @@
     }
     header button { background:#fff; color:#333; border:0; border-radius:8px; padding:6px 10px; cursor:pointer; }
     #timer { font-size:1.4em; font-weight:700; }
-    #status { font-weight:600; }
-    #warning { font-weight:700; }
+    #status, #warning { font-weight:600; }
     header.warn { background:#b45309; }
     iframe { margin-top:56px; width:100%; height:calc(100vh - 56px); border:none; }
 
-    /* Modal */
-    .overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; z-index:999; }
-    .hidden { display:none; }
-    .modal { background:#fff; color:#111; width:min(520px,92vw); border-radius:12px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,.25); }
-    .modal h3 { margin:0 0 8px; font-size:18px; }
-    .modal p { margin:0 0 12px; }
-    .actions { display:flex; gap:10px; justify-content:flex-end; }
-    .actions button { border:0; border-radius:8px; padding:8px 12px; cursor:pointer; }
-    .primary { background:#1f4aff; color:#fff; }
+    /* Banner de continuación (no bloquea la página) */
+    .continue {
+      position:fixed; left:50%; transform:translateX(-50%);
+      top:64px; z-index:11; background:#111; color:#fff;
+      padding:10px 12px; border-radius:10px; display:none; gap:10px; align-items:center;
+      box-shadow:0 8px 30px rgba(0,0,0,.35);
+      font-size:14px;
+    }
+    .continue button { background:#1f4aff; color:#fff; border:0; border-radius:8px; padding:6px 10px; cursor:pointer; }
   </style>
 </head>
 <body>
@@ -37,60 +36,50 @@
     <span id="warning"></span>
   </header>
 
+  <!-- Banner que aparece cuando creemos que ya se envió -->
+  <div id="contBanner" class="continue">
+    <span>¿Ya ves la confirmación de Google Forms?</span>
+    <button id="openNow">Abrir ahora</button>
+  </div>
+
   <!-- Reemplaza el src por el de CADA Google Form (mejor URL larga con ?embedded=true) -->
   <iframe id="form" src="https://docs.google.com/forms/d/e/1FAIpQLSdOId8ORrpXpfxBL6jr4UmA0oa1oX-nDpjrd_q7h_LNlArGrg/viewform?usp=dialog"></iframe>
-
-  <!-- Modal sin "Cancelar" -->
-  <div id="overlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal">
-      <h3 id="modalTitle">¡Respuesta enviada!</h3>
-      <p>Se abrirá la siguiente prueba en <strong><span id="count">5</span> s</strong>.</p>
-     <!-- <div class="actions">
-        <button id="openNow" class="primary">Abrir ahora</button>
-      </div> -->
-    </div>
-  </div>
 
   <script>
     /************* CONFIG *************/
     const TOTAL_TIME      = 25 * 60; // 25 min
     const WARNING_MINUTES = 5;       // aviso cuando queden 5 min
-    const DELAY_SECONDS   = 10;       // cuenta regresiva del modal
     const NEXT_URL        = "https://jacosta-25.github.io/RazonamientoNumerico/";
     const SECTIONS        = 2;       // tus forms: 2 secciones (ignora el primer “Siguiente”)
-    const COMPLETED_KEY   = "completed:" + location.pathname; // clave por página para bloqueo al volver
+    const COMPLETED_KEY   = "completed:" + location.pathname;
 
-    /************* REFERENCIAS DOM *************/
+    /************* DOM *************/
     const topbar   = document.getElementById("topbar");
     const timerEl  = document.getElementById("timer");
     const statusEl = document.getElementById("status");
     const warnEl   = document.getElementById("warning");
     const iframe   = document.getElementById("form");
-    const overlay  = document.getElementById("overlay");
-    const countEl  = document.getElementById("count");
+    const cont     = document.getElementById("contBanner");
     const btnOpen  = document.getElementById("openNow");
 
     /************* BLOQUEAR AL VOLVER (SIN REDIRIGIR) *************/
-    function blockPage(message){
-      iframe.src = "";                           // deshabilita el contenido
-      statusEl.textContent = message || "Esta prueba ya fue enviada en esta pestaña.";
+    function blockPage(msg){
+      iframe.src = "";
+      statusEl.textContent = msg || "Esta prueba ya fue enviada en esta pestaña.";
       const prep = document.getElementById("prep");
-      if (prep) prep.disabled = true;            // no permitir re-preabrir
-      try { clearInterval(tid); } catch(e) {}     // detener timer si ya corría
+      if (prep) prep.disabled = true;
+      try { clearInterval(tid); } catch(e){}
       timerEl.textContent = "—";
       topbar.classList.add("warn");
     }
     if (sessionStorage.getItem(COMPLETED_KEY) === "1") {
       blockPage("Esta prueba ya fue enviada en esta pestaña.");
     }
-    // Si el navegador reusa caché de página al volver
     window.addEventListener("pageshow", () => {
-      if (sessionStorage.getItem(COMPLETED_KEY) === "1") {
-        blockPage("Esta prueba ya fue enviada en esta pestaña.");
-      }
+      if (sessionStorage.getItem(COMPLETED_KEY) === "1") blockPage("Esta prueba ya fue enviada en esta pestaña.");
     });
 
-    /************* TIMER + AVISO *************/
+    /************* TIMER + AVISO 5 MIN *************/
     const qs = new URLSearchParams(location.search);
     let start = qs.get("startTime") ? parseInt(qs.get("startTime"),10) : Date.now();
     if (!qs.get("startTime")) { qs.set("startTime", String(start)); history.replaceState({}, "", `${location.pathname}?${qs}`); }
@@ -98,21 +87,19 @@
     const WARNING_AT = WARNING_MINUTES * 60;
     let warned5 = false;
     let tid = null;
-
     function tick(){
       const rem = TOTAL_TIME - Math.floor((Date.now()-start)/1000);
       if (rem > 0) {
         const m = Math.floor(rem/60), s = rem % 60;
         timerEl.textContent = `${m}:${s<10?"0":""}${s}`;
         if (!warned5 && rem <= WARNING_AT) {
-          warned5 = true;
-          topbar.classList.add('warn');
-          warnEl.textContent = `⚠️ Quedan ${WARNING_MINUTES} minutos. Por favor, revisa y prepara tu envío.`;
+          warned5 = true; topbar.classList.add('warn');
+          warnEl.textContent = `⚠️ Quedan ${WARNING_MINUTES} minutos. Revisa y prepara tu envío.`;
         }
       } else {
         timerEl.textContent = "00:00";
         alert("El tiempo ha expirado. Este formulario ya no está disponible.");
-        iframe.src = ""; // Limpia el iframe
+        iframe.src = "";
         clearInterval(tid);
       }
     }
@@ -127,7 +114,7 @@
         if (nextWin) {
           nextWin.document.write("<title>Próxima prueba</title><p>Esperando envío…</p>");
           nextWin.document.close();
-          alert("Listo. Al ENVIAR (pantalla final), se cargará la siguiente prueba.");
+          alert("Listo. Al ENVIAR (pantalla final), podrás abrir la siguiente prueba con el botón.");
         } else {
           alert("El navegador bloqueó la pestaña. Permite pop-ups para este sitio.");
         }
@@ -136,7 +123,7 @@
       }
     });
 
-    // 2) Detectar secciones vs envío final
+    // 2) Detectar secciones vs envío final — sin autoabrir
     let ready = false, handled = false, settle = null;
     let remainingTransitions = Math.max(0, SECTIONS - 1); // para 2 secciones => 1 transición ignorada
 
@@ -154,38 +141,14 @@
         return;
       }
 
-      // Confirmación final → marcar completado + modal
-      handled = true;
-      sessionStorage.setItem(COMPLETED_KEY, "1");  // <<— marca esta pestaña como completada
-      statusEl.textContent = "¡Respuesta enviada!";
-      showModalCountdown();
-      // Opcional visual: limpiar el iframe para que no sigan viendo el OK de Google
-      // iframe.src = "";
+      // Carga subsiguiente: podría ser confirmación o “Atrás”.
+      // No auto-abrimos: mostramos el banner con "Abrir ahora".
+      sessionStorage.setItem(COMPLETED_KEY, "1"); // marcamos completado para bloquear si vuelven a esta página
+      statusEl.textContent = "Respuesta lista para continuar.";
+      cont.style.display = "flex";
     });
 
-    /************* MODAL + CUENTA REGRESIVA *************/
-    const DELAY_SECONDS_FIXED = DELAY_SECONDS;
-    let countdownId = null;
-    function showModalCountdown(){
-      let remaining = DELAY_SECONDS_FIXED;
-      countEl.textContent = remaining;
-      overlay.classList.remove("hidden");
-      countdownId = setInterval(() => {
-        remaining--;
-        countEl.textContent = remaining;
-        if (remaining <= 0) {
-          clearInterval(countdownId);
-          overlay.classList.add("hidden");
-          openNext();
-        }
-      }, 1000);
-    }
-    btnOpen.addEventListener("click", () => {
-      if (countdownId) clearInterval(countdownId);
-      overlay.classList.add("hidden");
-      openNext();
-    });
-
+    // 3) Botón "Abrir ahora"
     function openNext(){
       if (nextWin && !nextWin.closed) {
         nextWin.location.href = NEXT_URL;            // pestaña preabierta
@@ -194,6 +157,8 @@
         if (!w) window.location.href = NEXT_URL;     // si bloquean, misma pestaña
       }
     }
+    btnOpen.addEventListener("click", () => openNext());
   </script>
 </body>
 </html>
+
